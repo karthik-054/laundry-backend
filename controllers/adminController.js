@@ -247,11 +247,12 @@
 //     });
 //   }
 // };
-
+const mongoose = require('mongoose')
 const ServiceRequest = require('../models/ServiceRequest')
 const User = require('../models/Users')
 const Order = require('../models/Order')
 const bcrypt = require('bcryptjs')
+const Notification = require('../models/Notification')
 
 // =====================================================
 // GET ALL SERVICE REQUESTS
@@ -523,38 +524,51 @@ exports.getReports = async (req, res) => {
 }
 
 // =====================================================
-// UPDATE ORDER PROCESSING STATUS
+// UPDATE ORDER STATUS
 // PATCH /api/admin/orders/:id/status
 // =====================================================
 
 exports.updateOrderStatus = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { status } = req.body;
+    const { id } = req.params
+    const { status } = req.body
+
+    console.log('========== UPDATE ORDER STATUS ==========')
+    console.log('ORDER ID:', id)
+    console.log('NEW STATUS:', status)
+    console.log('ADMIN ID:', req.user?.id)
+
+    // ==========================================
+    // VALID STATUSES
+    // ==========================================
 
     const allowedStatuses = [
       'PROCESSING',
-      'READY_FOR_DELIVERY',
-    ];
+      'READY_FOR_DELIVERY'
+    ]
 
     if (!allowedStatuses.includes(status)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid admin order status',
-      });
+        message: 'Invalid admin order status'
+      })
     }
 
-    const order = await Order.findById(id);
+    // ==========================================
+    // FIND ORDER
+    // ==========================================
+
+    const order = await Order.findById(id)
 
     if (!order) {
       return res.status(404).json({
         success: false,
-        message: 'Order not found',
-      });
+        message: 'Order not found'
+      })
     }
 
     // ==========================================
-    // PREVENT INVALID STATUS CHANGES
+    // VALIDATE STATUS FLOW
     // ==========================================
 
     if (
@@ -564,8 +578,8 @@ exports.updateOrderStatus = async (req, res) => {
       return res.status(400).json({
         success: false,
         message:
-          `Order must be PICKED_UP before processing. Current status: ${order.status}`,
-      });
+          `Order must be PICKED_UP before processing. Current status: ${order.status}`
+      })
     }
 
     if (
@@ -575,24 +589,75 @@ exports.updateOrderStatus = async (req, res) => {
       return res.status(400).json({
         success: false,
         message:
-          `Order must be PROCESSING before it can be ready for delivery. Current status: ${order.status}`,
-      });
+          `Order must be PROCESSING before it can be ready for delivery. Current status: ${order.status}`
+      })
     }
 
     // ==========================================
     // UPDATE STATUS
     // ==========================================
 
-    order.status = status;
+    order.status = status
 
-    await order.save();
+    await order.save()
+
+    console.log(
+      'ORDER STATUS UPDATED:',
+      order.orderNumber,
+      status
+    )
 
     // ==========================================
-    // RETURN UPDATED ORDER
+    // PROCESSING NOTIFICATION
+    // ==========================================
+
+    if (status === 'PROCESSING') {
+      const notification = await Notification.create({
+        user: order.customer,
+        title: 'Order processing',
+        body:
+          `Your order ${order.orderNumber} is now being processed.`,
+        type: 'ORDER',
+        orderId: order._id,
+        read: false
+      })
+
+      console.log(
+        'PROCESSING NOTIFICATION CREATED:',
+        notification._id
+      )
+    }
+
+    // ==========================================
+    // READY FOR DELIVERY NOTIFICATION
+    // ==========================================
+
+    if (status === 'READY_FOR_DELIVERY') {
+      const notification = await Notification.create({
+        user: order.customer,
+        title: 'Order ready for delivery',
+        body:
+          `Your order ${order.orderNumber} is ready for delivery.`,
+        type: 'DELIVERY',
+        orderId: order._id,
+        read: false
+      })
+
+      console.log(
+        'READY NOTIFICATION CREATED:',
+        notification._id
+      )
+    }
+
+    // ==========================================
+    // GET UPDATED ORDER
     // ==========================================
 
     const updatedOrder = await Order.findById(id)
-      .populate('customer', 'name email phone')
+      .populate(
+        'customer',
+        'name email phone'
+      )
       .populate(
         'pickupDeliveryUser',
         'name email phone role'
@@ -602,32 +667,35 @@ exports.updateOrderStatus = async (req, res) => {
         'name email phone role'
       )
       .populate(
-        'deliveryAgent',
-        'name email phone role'
+        'service',
+        'name'
       )
-      .populate('service', 'name');
 
-    console.log('====================================');
-    console.log('ADMIN ORDER STATUS UPDATED');
-    console.log('Order:', id);
-    console.log('New Status:', status);
-    console.log('====================================');
+    // ==========================================
+    // RESPONSE
+    // ==========================================
 
     return res.status(200).json({
       success: true,
-      message: `Order status updated to ${status}`,
-      data: updatedOrder,
-    });
+      message:
+        `Order status updated to ${status}`,
+
+      data: {
+        ...updatedOrder.toObject(),
+
+        id: updatedOrder._id.toString()
+      }
+    })
 
   } catch (error) {
     console.error(
-      'Update Admin Order Status Error:',
+      'Update Order Status Error:',
       error
-    );
+    )
 
     return res.status(500).json({
       success: false,
-      message: error.message,
-    });
+      message: error.message
+    })
   }
-};
+}

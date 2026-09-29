@@ -4,19 +4,22 @@ const notificationSchema =
   new mongoose.Schema(
     {
       user: {
-        type: mongoose.Schema.Types.ObjectId,
+        type:
+          mongoose.Schema.Types.ObjectId,
         ref: "User",
-        required: true
+        required: true,
       },
 
       title: {
         type: String,
-        required: true
+        required: true,
+        trim: true,
       },
 
-      message: {
+      body: {
         type: String,
-        required: true
+        required: true,
+        trim: true,
       },
 
       type: {
@@ -25,24 +28,39 @@ const notificationSchema =
         enum: [
           "ORDER",
           "PAYMENT",
-          "PROMOTION",
-          "GENERAL"
+          "DELIVERY",
+          "WALLET",
+          "COIN",
+          "REVIEW",
+          "CUSTOMER",
+          "GENERAL",
         ],
 
-        default: "GENERAL"
+        default: "GENERAL",
       },
 
-      isRead: {
+      orderId: {
+        type:
+          mongoose.Schema.Types.ObjectId,
+
+        ref: "Order",
+
+        default: null,
+      },
+
+      read: {
         type: Boolean,
-        default: false
-      }
+        default: false,
+      },
     },
+
     {
-      timestamps: true
+      timestamps: true,
     }
   );
 
-module.exports = mongoose.model(
-  "Notification",
-  notificationSchema
-);
+module.exports =
+  mongoose.model(
+    "Notification",
+    notificationSchema
+  );

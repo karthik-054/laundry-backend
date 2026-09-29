@@ -1,10 +1,17 @@
 // const jwt = require("jsonwebtoken");
 
+// // ========================================
+// // PROTECT MIDDLEWARE
+// // ========================================
+
 // const protect = (req, res, next) => {
 //   try {
 //     const authHeader = req.headers.authorization;
 
-//     if (!authHeader || !authHeader.startsWith("Bearer ")) {
+//     if (
+//       !authHeader ||
+//       !authHeader.startsWith("Bearer ")
+//     ) {
 //       return res.status(401).json({
 //         success: false,
 //         message: "Not authorized. Token required",
@@ -18,10 +25,16 @@
 //       process.env.JWT_SECRET
 //     );
 
+//     // Store user data from JWT
 //     req.user = decoded;
 
 //     next();
 //   } catch (error) {
+//     console.error(
+//       "Authentication Error:",
+//       error.message
+//     );
+
 //     return res.status(401).json({
 //       success: false,
 //       message: "Invalid or expired token",
@@ -29,7 +42,100 @@
 //   }
 // };
 
-// module.exports = protect;
+
+// // ========================================
+// // AUTHORIZE ROLE MIDDLEWARE
+// // ========================================
+
+// const authorize = (...roles) => {
+//   return (req, res, next) => {
+//     if (!req.user) {
+//       return res.status(401).json({
+//         success: false,
+//         message: "Not authorized",
+//       });
+//     }
+
+//     if (!roles.includes(req.user.role)) {
+//       return res.status(403).json({
+//         success: false,
+//         message:
+//           "You do not have permission to access this resource",
+//       });
+//     }
+
+//     next();
+//   };
+// };
+
+
+// // ========================================
+// // ADMIN ONLY MIDDLEWARE
+// // ========================================
+
+// const adminOnly = (
+//   req,
+//   res,
+//   next
+// ) => {
+//   if (!req.user) {
+//     return res.status(401).json({
+//       success: false,
+//       message: "Not authorized",
+//     });
+//   }
+
+//   if (req.user.role !== "admin") {
+//     return res.status(403).json({
+//       success: false,
+//       message: "Admin access required",
+//     });
+//   }
+
+//   next();
+// };
+
+
+// // ========================================
+// // DELIVERY ONLY MIDDLEWARE
+// // ========================================
+
+// const deliveryOnly = (
+//   req,
+//   res,
+//   next
+// ) => {
+//   if (!req.user) {
+//     return res.status(401).json({
+//       success: false,
+//       message: "Not authorized",
+//     });
+//   }
+
+//   if (req.user.role !== "delivery") {
+//     return res.status(403).json({
+//       success: false,
+//       message:
+//         "Delivery access required",
+//     });
+//   }
+
+//   next();
+// };
+
+
+// // ========================================
+// // EXPORTS
+// // ========================================
+
+// module.exports = {
+//   protect,
+//   authorize,
+//   adminOnly,
+//   deliveryOnly,
+// };
+
+
 
 const jwt = require("jsonwebtoken");
 
@@ -58,8 +164,16 @@ const protect = (req, res, next) => {
       process.env.JWT_SECRET
     );
 
-    // Store user data from JWT
-    req.user = decoded;
+    // ========================================
+    // STORE USER DATA
+    // ========================================
+
+    req.user = {
+      _id: decoded.id,
+      id: decoded.id,
+      role: decoded.role,
+      email: decoded.email,
+    };
 
     next();
   } catch (error) {
@@ -74,7 +188,6 @@ const protect = (req, res, next) => {
     });
   }
 };
-
 
 // ========================================
 // AUTHORIZE ROLE MIDDLEWARE
@@ -101,16 +214,11 @@ const authorize = (...roles) => {
   };
 };
 
-
 // ========================================
 // ADMIN ONLY MIDDLEWARE
 // ========================================
 
-const adminOnly = (
-  req,
-  res,
-  next
-) => {
+const adminOnly = (req, res, next) => {
   if (!req.user) {
     return res.status(401).json({
       success: false,
@@ -128,16 +236,11 @@ const adminOnly = (
   next();
 };
 
-
 // ========================================
 // DELIVERY ONLY MIDDLEWARE
 // ========================================
 
-const deliveryOnly = (
-  req,
-  res,
-  next
-) => {
+const deliveryOnly = (req, res, next) => {
   if (!req.user) {
     return res.status(401).json({
       success: false,
@@ -148,14 +251,12 @@ const deliveryOnly = (
   if (req.user.role !== "delivery") {
     return res.status(403).json({
       success: false,
-      message:
-        "Delivery access required",
+      message: "Delivery access required",
     });
   }
 
   next();
 };
-
 
 // ========================================
 // EXPORTS
