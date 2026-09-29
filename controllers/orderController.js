@@ -1,4 +1,5 @@
 const Order = require('../models/Order')
+const User = require('../models/Users')
 const Service = require('../models/Service')
 const DressType = require('../models/DressType')
 const ServicePrice = require('../models/ServicePrice')
@@ -6,7 +7,9 @@ const Coin = require('../models/Coin')
 const Wallet = require('../models/Wallet')
 const WalletTransaction = require('../models/WalletTransaction')
 const CoinTransaction = require('../models/CoinTransaction')
-
+// const createNotification = require('../utils/createNotification')
+const Notification = require('../models/Notification')
+const { notifyAdmins } = require('../controllers/notificationController')
 const QUICK_DELIVERY_CHARGE = 50
 const SERVICE_CHARGE = 20
 const COIN_VALUE = 1
@@ -299,46 +302,56 @@ exports.createOrder = async (req, res) => {
 
     const order = await Order.create({
       customer: req.user.id,
-
       orderNumber,
-
       service: service._id,
       serviceName: service.name,
-
       items: calculatedItems,
-
       pickupAt: pickupDate,
-
       deliveryPreference,
-
       expectedDeliveryAt,
-
       subtotal,
-
       serviceCharge,
-
       quickDeliveryCharge,
-
       membershipDiscount,
-
       coinDiscount,
-
       coinsUsed: validCoinsToRedeem,
-
       coinsEarned,
-
       finalAmount,
-
       paymentMethod,
-
       paymentStatus,
-
       walletUsed,
-
       razorpayAmount,
-
       status: 'ORDER_CREATED'
     })
+    // ==========================================
+    // CUSTOMER ORDER NOTIFICATION
+    // ==========================================
+
+    await Notification.create({
+      user: req.user.id,
+
+      title: 'Order created successfully',
+
+      body: `Your order ${order.orderNumber} has been created successfully.`,
+
+      type: 'ORDER',
+
+      orderId: order._id,
+
+      read: false
+    })
+
+
+    await notifyAdmins({
+    title: 'New order received',
+
+    body:
+      `New order ${order.orderNumber} has been booked by ${req.user.name || 'a customer'}.`,
+
+    type: 'ORDER',
+
+    orderId: order._id
+  })
 
     // -----------------------------
     // 14. Response
@@ -946,12 +959,74 @@ exports.cancelOrder = async (req, res) => {
     }
 
     order.status = 'CANCELLED'
+   
+    order.pickupDeliveryUser = deliveryUserId
+    order.assignedAt = new Date()
+    order.assignedBy = req.user.id
 
     order.cancellationReason = reason || 'Cancelled by customer'
 
     order.cancelledAt = new Date()
 
     await order.save()
+
+    //  await createNotification({
+    //   userId: req.user._id,
+
+    //   title: 'Order placed successfully',
+
+    //   body: `Your order ${order.orderNumber} has been placed successfully.`,
+
+    //   type: 'ORDER',
+
+    //   orderId: order._id
+    // })
+
+    await Notification.create({
+      user: order.user.id,
+      title: 'Pickup assigned',
+      body: `A delivery person has been assigned to pick up your order ${order.orderNumber}.`,
+      type: 'DELIVERY',
+      orderId: order._id
+    })
+
+    await Notification.create({
+      user: deliveryUserId,
+      title: 'New pickup assigned',
+      body: `You have been assigned to pick up order ${order.orderNumber}.`,
+      type: 'DELIVERY',
+      orderId: order._id
+    })
+
+   
+
+    await Notification.create({
+      user: order.customer,
+      title: 'Order processing',
+      body: `Your order ${order.orderNumber} is now being processed.`,
+      type: 'ORDER',
+      orderId: order._id,
+      read: false
+    })
+
+    await Notification.create({
+      user: order.customer,
+      title: 'Order ready for delivery',
+      body: `Your order ${order.orderNumber} is ready for delivery.`,
+      type: 'DELIVERY',
+      orderId: order._id,
+      read: false
+    })
+
+    await notifyAdmins({
+      title: 'New order received',
+
+      body: `New order ${order.orderNumber} has been created.`,
+
+      type: 'ORDER',
+
+      orderId: order._id
+    })
 
     return res.status(200).json({
       success: true,

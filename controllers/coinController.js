@@ -1,5 +1,6 @@
 const Coin = require("../models/Coin");
 const CoinTransaction = require("../models/CoinTransaction");
+const  { createNotification } = require('./notificationController')
 
 // =====================================================
 // GET MY COINS

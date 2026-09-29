@@ -1,9 +1,9 @@
-const User = require("../models/Users");
-const Wallet = require("../models/Wallet");
-const Coin = require("../models/Coin");
-
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
+const User = require('../models/Users')
+const Wallet = require('../models/Wallet')
+const Coin = require('../models/Coin')
+const { notifyAdmins } = require('./notificationController')
+const bcrypt = require('bcryptjs')
+const jwt = require('jsonwebtoken')
 
 // CUSTOMER REGISTER
 // const registerCustomer = async (req, res) => {
@@ -75,28 +75,25 @@ const jwt = require("jsonwebtoken");
 
 const registerCustomer = async (req, res) => {
   try {
-    const { name, email, password, phone } = req.body;
+    const { name, email, password, phone } = req.body
 
     if (!name || !email || !password || !phone) {
       return res.status(400).json({
         success: false,
-        message: "All fields are required",
-      });
+        message: 'All fields are required'
+      })
     }
 
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email })
 
     if (existingUser) {
       return res.status(400).json({
         success: false,
-        message: "User already exists",
-      });
+        message: 'User already exists'
+      })
     }
 
-    const hashedPassword = await bcrypt.hash(
-      password,
-      10,
-    );
+    const hashedPassword = await bcrypt.hash(password, 10)
 
     // Create user
     const user = await User.create({
@@ -104,8 +101,8 @@ const registerCustomer = async (req, res) => {
       email,
       password: hashedPassword,
       phone,
-      role: "customer",
-    });
+      role: 'customer'
+    })
 
     // ==========================================
     // CREATE DEFAULT WALLET
@@ -113,8 +110,16 @@ const registerCustomer = async (req, res) => {
 
     const wallet = await Wallet.create({
       user: user._id,
-      balance: 10,
-    });
+      balance: 10
+    })
+
+    await notifyAdmins({
+      title: 'New customer registered',
+
+      body: `${user.name} has created a new customer account.`,
+
+      type: 'CUSTOMER'
+    })
 
     // ==========================================
     // CREATE DEFAULT COINS
@@ -122,8 +127,8 @@ const registerCustomer = async (req, res) => {
 
     const coins = await Coin.create({
       user: user._id,
-      balance: 10,
-    });
+      balance: 10
+    })
 
     // ==========================================
     // GENERATE TOKEN
@@ -132,13 +137,13 @@ const registerCustomer = async (req, res) => {
     const token = jwt.sign(
       {
         id: user._id,
-        role: user.role,
+        role: user.role
       },
       process.env.JWT_SECRET,
       {
-        expiresIn: "7d",
-      },
-    );
+        expiresIn: '7d'
+      }
+    )
 
     // ==========================================
     // RESPONSE
@@ -146,8 +151,7 @@ const registerCustomer = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message:
-        "Customer registered successfully",
+      message: 'Customer registered successfully',
 
       token,
 
@@ -156,26 +160,22 @@ const registerCustomer = async (req, res) => {
         name: user.name,
         email: user.email,
         phone: user.phone,
-        role: user.role,
+        role: user.role
       },
 
       walletBalance: wallet.balance,
 
-      coinBalance: coins.balance,
-    });
-
+      coinBalance: coins.balance
+    })
   } catch (error) {
-    console.error(
-      "Register Error:",
-      error,
-    );
+    console.error('Register Error:', error)
 
     return res.status(500).json({
       success: false,
-      message: error.message,
-    });
+      message: error.message
+    })
   }
-};
+}
 
 // USER LOGIN
 const loginUser = async (req, res) => {

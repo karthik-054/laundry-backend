@@ -1,6 +1,6 @@
 const Wallet = require("../models/Wallet");
 const WalletTransaction = require("../models/WalletTransaction");
-
+const { createNotification} = require('./notificationController')
 // =====================================================
 // GET MY WALLET
 // GET /api/wallet
@@ -26,6 +26,8 @@ exports.getMyWallet = async (req, res) => {
     }).sort({
       createdAt: -1,
     });
+
+    
 
     const formattedTransactions = transactions.map((transaction) => ({
       id: transaction._id.toString(),
@@ -85,6 +87,16 @@ exports.addMoney = async (req, res) => {
     let wallet = await Wallet.findOne({
       user: userId,
     });
+
+    await createNotification({
+  userId: user._id,
+
+  title: "Wallet updated",
+
+  body: `₹${amount} has been added to your wallet.`,
+
+  type: "WALLET",
+});
 
     // Create wallet if not available
     if (!wallet) {
@@ -167,6 +179,18 @@ exports.debitMoney = async (req, res) => {
         message: "Wallet not found",
       });
     }
+
+    await createNotification({
+  userId: user._id,
+
+  title: "Wallet payment",
+
+  body: `₹${amount} was used from your wallet.`,
+
+  type: "WALLET",
+
+  orderId: order._id,
+});
 
     const currentBalance = Number(wallet.balance || 0);
 
